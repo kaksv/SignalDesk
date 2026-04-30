@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum MarketStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  SETTLED
+}
+
+enum OutcomeSide {
+  YES
+  NO
+}
+
+enum OrderSide {
+  BUY
+  SELL
+}
+
+enum PayoutStatus {
+  PENDING
+  CLAIMED
+}
+
+model Market {
+  id            String       @id
+  question      String
+  closeAt       DateTime
+  feeBps        Int
+  status        MarketStatus @default(DRAFT)
+  outcome       Boolean?
+  settlementRef String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  trades        Trade[]
+  positions     Position[]
+  payouts       Payout[]
+}
+
+model Trade {
+  id          String      @id
+  marketId    String
+  userId      String
+  side        OrderSide
+  outcomeSide OutcomeSide
+  quantity    Int
+  price       Float
+  notional    Float
+  feeAmount   Float
+  createdAt   DateTime    @default(now())
+  market      Market      @relation(fields: [marketId], references: [id], onDelete: Cascade)
+}
+
+model Position {
+  id            String   @id
+  marketId       String
+  userId         String
+  yesShares      Int      @default(0)
+  noShares       Int      @default(0)
+  cashFlow       Float    @default(0)
+  totalFeesPaid  Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  market         Market   @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  payout         Payout?
+
+  @@unique([marketId, userId])
+}
+
+model Payout {
+  id          String       @id
+  marketId    String
+  userId      String
+  positionId  String       @unique
+  grossPayout Float
+  netPayout   Float
+  status      PayoutStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  market      Market       @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  position    Position     @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@unique([marketId, userId])
+}
