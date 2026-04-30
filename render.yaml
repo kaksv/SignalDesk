@@ -4,7 +4,7 @@ services:
     runtime: node
     rootDir: .
     plan: starter
-    buildCommand: npm install && npm run db:generate -w @signaldesk/api && npm run build
+    buildCommand: npm install --include=dev && npm run db:generate -w @signaldesk/api && npm run build
     startCommand: npm run db:deploy -w @signaldesk/api && npm run start -w @signaldesk/api
     envVars:
       - key: NODE_VERSION
