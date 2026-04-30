@@ -34,6 +34,7 @@
 5. Copy the DB connection string.
 6. In `signaldesk-api` environment variables, set:
    - `DATABASE_URL=<your-render-postgres-connection-string>`
+   - Use the **External Database URL** (includes host/user/password/db).
 7. Set `CORS_ORIGIN` to your real Vercel URL after frontend deployment.
 8. Trigger deploy (or redeploy if already created).
 
@@ -84,6 +85,7 @@
 ## 7) Common gotchas
 
 - Do not use SQLite in production. Use Render Postgres `DATABASE_URL`.
+- If you see `Environment variable not found: DATABASE_URL`, the variable is missing at the **service level**. Add it to `signaldesk-api` env vars and redeploy.
 - If frontend calls fail with CORS, verify `CORS_ORIGIN` exactly matches your Vercel domain.
 - If migrations fail, run `npm run db:deploy -w @signaldesk/api` from Render shell/log retry.
 - Keep `OPERATOR_API_KEY` secret and rotate it regularly.
