@@ -57,6 +57,8 @@
 2. Set **Root Directory** to `apps/web`.
 3. Set env var:
    - `NEXT_PUBLIC_API_URL=https://<your-render-api-domain>`
+   - `API_BASE_URL=https://<your-render-api-domain>`
+   - `OPERATOR_API_KEY=<same-key-used-by-render-api>`
 4. Deploy.
 
 ## 5) Wire CORS and redeploy backend

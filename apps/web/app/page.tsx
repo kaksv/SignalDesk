@@ -1,3 +1,5 @@
+import { Console } from "./components/console";
+
 type HealthResponse = {
   ok: boolean;
   service: string;
@@ -62,6 +64,8 @@ export default async function HomePage() {
           </article>
         ))}
       </section>
+
+      <Console markets={markets} />
     </main>
   );
 }
