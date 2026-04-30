@@ -22,4 +22,4 @@ services:
 
 databases:
   - name: signaldesk-db
-    plan: starter
+    plan: basic_1gb
