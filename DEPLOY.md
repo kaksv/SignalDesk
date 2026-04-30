@@ -29,11 +29,13 @@
 
 1. Go to Render and choose **New +** -> **Blueprint**.
 2. Connect your GitHub repo.
-3. Render detects `render.yaml` and creates:
-   - `signaldesk-api` web service
-   - `signaldesk-db` Postgres database
-4. Set `CORS_ORIGIN` to your real Vercel URL after frontend deployment.
-5. Trigger deploy.
+3. Render detects `render.yaml` and creates `signaldesk-api` web service.
+4. Create a Postgres DB in Render manually (**New +** -> **PostgreSQL**).
+5. Copy the DB connection string.
+6. In `signaldesk-api` environment variables, set:
+   - `DATABASE_URL=<your-render-postgres-connection-string>`
+7. Set `CORS_ORIGIN` to your real Vercel URL after frontend deployment.
+8. Trigger deploy (or redeploy if already created).
 
 ### Option B: Manual Render setup
 
