@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Market = {
@@ -14,14 +14,78 @@ type Props = {
   markets: Market[];
 };
 
+type Position = {
+  userId: string;
+  yesShares: number;
+  noShares: number;
+  cashFlow: number;
+  totalFeesPaid: number;
+};
+
+type Payout = {
+  userId: string;
+  grossPayout: number;
+  netPayout: number;
+  status: "PENDING" | "CLAIMED";
+};
+
 export function Console({ markets }: Props) {
   const router = useRouter();
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [isBusy, setIsBusy] = useState(false);
+  const [selectedMarketId, setSelectedMarketId] = useState("");
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [payouts, setPayouts] = useState<Payout[]>([]);
+  const [isPanelLoading, setIsPanelLoading] = useState(false);
+  const [panelError, setPanelError] = useState("");
 
   const marketIds = useMemo(() => markets.map((m) => m.id), [markets]);
   const defaultMarketId = marketIds[0] ?? "";
+
+  useEffect(() => {
+    if (!selectedMarketId && defaultMarketId) {
+      setSelectedMarketId(defaultMarketId);
+    }
+  }, [defaultMarketId, selectedMarketId]);
+
+  async function refreshPanels(marketId: string) {
+    if (!marketId) {
+      setPositions([]);
+      setPayouts([]);
+      return;
+    }
+
+    setIsPanelLoading(true);
+    setPanelError("");
+    try {
+      const [positionsRes, payoutsRes] = await Promise.all([
+        fetch(`/api/markets/${marketId}/positions`, { cache: "no-store" }),
+        fetch(`/api/markets/${marketId}/payouts`, { cache: "no-store" })
+      ]);
+
+      const positionsPayload = await positionsRes.json();
+      const payoutsPayload = await payoutsRes.json();
+
+      if (!positionsRes.ok) {
+        throw new Error(positionsPayload.error ?? "Failed to fetch positions");
+      }
+      if (!payoutsRes.ok) {
+        throw new Error(payoutsPayload.error ?? "Failed to fetch payouts");
+      }
+
+      setPositions((positionsPayload.positions ?? []) as Position[]);
+      setPayouts((payoutsPayload.payouts ?? []) as Payout[]);
+    } catch (err) {
+      setPanelError((err as Error).message);
+    } finally {
+      setIsPanelLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void refreshPanels(selectedMarketId);
+  }, [selectedMarketId]);
 
   async function submit(path: string, method: "POST" | "PATCH", body: Record<string, unknown>) {
     setIsBusy(true);
@@ -39,6 +103,8 @@ export function Console({ markets }: Props) {
       }
       setMessage("Action completed successfully.");
       router.refresh();
+      const marketId = typeof body.marketId === "string" ? body.marketId : selectedMarketId;
+      await refreshPanels(marketId);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -123,7 +189,14 @@ export function Console({ markets }: Props) {
       <form onSubmit={onChangeStatus} style={{ border: "1px solid #ddd", borderRadius: 12, padding: "1rem" }}>
         <h3 style={{ marginTop: 0 }}>Change Market Status</h3>
         <label htmlFor="statusMarketId">Market</label>
-        <select id="statusMarketId" name="marketId" defaultValue={defaultMarketId} required style={{ display: "block", width: "100%", marginBottom: 8 }}>
+        <select
+          id="statusMarketId"
+          name="marketId"
+          value={selectedMarketId}
+          onChange={(event) => setSelectedMarketId(event.target.value)}
+          required
+          style={{ display: "block", width: "100%", marginBottom: 8 }}
+        >
           {marketIds.map((id) => <option key={id} value={id}>{id}</option>)}
         </select>
         <label htmlFor="status">Status</label>
@@ -139,7 +212,14 @@ export function Console({ markets }: Props) {
       <form onSubmit={onTrade} style={{ border: "1px solid #ddd", borderRadius: 12, padding: "1rem" }}>
         <h3 style={{ marginTop: 0 }}>Place Trade</h3>
         <label htmlFor="tradeMarketId">Market</label>
-        <select id="tradeMarketId" name="marketId" defaultValue={defaultMarketId} required style={{ display: "block", width: "100%", marginBottom: 8 }}>
+        <select
+          id="tradeMarketId"
+          name="marketId"
+          value={selectedMarketId}
+          onChange={(event) => setSelectedMarketId(event.target.value)}
+          required
+          style={{ display: "block", width: "100%", marginBottom: 8 }}
+        >
           {marketIds.map((id) => <option key={id} value={id}>{id}</option>)}
         </select>
         <label htmlFor="userId">User ID</label>
@@ -166,7 +246,14 @@ export function Console({ markets }: Props) {
       <form onSubmit={onSettle} style={{ border: "1px solid #ddd", borderRadius: 12, padding: "1rem" }}>
         <h3 style={{ marginTop: 0 }}>Settle Market</h3>
         <label htmlFor="settleMarketId">Market</label>
-        <select id="settleMarketId" name="marketId" defaultValue={defaultMarketId} required style={{ display: "block", width: "100%", marginBottom: 8 }}>
+        <select
+          id="settleMarketId"
+          name="marketId"
+          value={selectedMarketId}
+          onChange={(event) => setSelectedMarketId(event.target.value)}
+          required
+          style={{ display: "block", width: "100%", marginBottom: 8 }}
+        >
           {marketIds.map((id) => <option key={id} value={id}>{id}</option>)}
         </select>
         <label htmlFor="winningSide">Winning Side</label>
@@ -180,6 +267,46 @@ export function Console({ markets }: Props) {
           {isBusy ? "Submitting..." : "Settle Market"}
         </button>
       </form>
+
+      <section style={{ border: "1px solid #ddd", borderRadius: 12, padding: "1rem" }}>
+        <h3 style={{ marginTop: 0 }}>Live Exposures (Positions)</h3>
+        <button
+          type="button"
+          onClick={() => void refreshPanels(selectedMarketId)}
+          disabled={isPanelLoading || !selectedMarketId}
+          style={{ marginBottom: 10 }}
+        >
+          {isPanelLoading ? "Refreshing..." : "Refresh Positions & Payouts"}
+        </button>
+        {panelError && (
+          <p role="alert" style={{ color: "#b91c1c", margin: 0 }}>
+            {panelError}
+          </p>
+        )}
+        {!panelError && positions.length === 0 && <p>No positions yet for this market.</p>}
+        {positions.map((position) => (
+          <article key={position.userId} style={{ marginBottom: "0.75rem" }}>
+            <strong>{position.userId}</strong>
+            <div>YES shares: {position.yesShares}</div>
+            <div>NO shares: {position.noShares}</div>
+            <div>Cash flow: {position.cashFlow.toFixed(2)}</div>
+            <div>Fees paid: {position.totalFeesPaid.toFixed(2)}</div>
+          </article>
+        ))}
+      </section>
+
+      <section style={{ border: "1px solid #ddd", borderRadius: 12, padding: "1rem" }}>
+        <h3 style={{ marginTop: 0 }}>Live Settlement Outcomes (Payouts)</h3>
+        {!panelError && payouts.length === 0 && <p>No payouts yet for this market.</p>}
+        {payouts.map((payout) => (
+          <article key={payout.userId} style={{ marginBottom: "0.75rem" }}>
+            <strong>{payout.userId}</strong>
+            <div>Gross payout: {payout.grossPayout.toFixed(2)}</div>
+            <div>Net payout: {payout.netPayout.toFixed(2)}</div>
+            <div>Status: {payout.status}</div>
+          </article>
+        ))}
+      </section>
     </section>
   );
 }
